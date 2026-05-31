@@ -46,8 +46,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex){
+
+        ex.printStackTrace();
+
         ErrorResponse error = ErrorResponse.builder()
-                .message("Something went wrong")
+                .message(ex.getMessage())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .timestamp(LocalDateTime.now())
                 .build();

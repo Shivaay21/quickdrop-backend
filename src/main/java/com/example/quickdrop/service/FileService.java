@@ -31,9 +31,6 @@ public class FileService {
     @Value("${app.file.max-size}")
     private long maxFileSize;
 
-    @Value("${app.file.expiry-hours}")
-    private long expiryHours;
-
     @Value("${app.base-url}")
     private String baseUrl;
 
@@ -91,54 +88,84 @@ public class FileService {
                 .oneTimeDownload(oneTimeDownload)
                 .build();
 
+        // 1st save → get ID
         FileMetadata saved = fileRepository.save(fileMetadata);
 
+// generate shortCode
         String shortCode = Base62Util.encode(saved.getId());
-
         saved.setShortCode(shortCode);
 
+// final save
         fileRepository.save(saved);
 
         return FileUploadResponseDto.builder()
                 .message("File uploaded successfully")
                 .originalFileName(originalFileName)
                 .shortCode(shortCode)
-                .downloadUrl(baseUrl+ "/f/" + shortCode)
+                .downloadUrl(baseUrl+ "/api/files/download/" + shortCode)
                 .build();
     }
 
-    public ResponseEntity<Resource> downloadFile(String shortCode) throws IOException {
-        FileMetadata fileMetadata = fileRepository.findByShortCode(shortCode)
-                .orElseThrow(() -> new FileNotFoundException("File not found"));
+    public ResponseEntity<Resource> downloadFile(
+            String shortCode
+    ) throws IOException {
 
-        if (fileMetadata.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new FileExpiredException("Link Expired");
+        FileMetadata fileMetadata =
+                fileRepository.findByShortCode(shortCode)
+                        .orElseThrow(() ->
+                                new FileNotFoundException("File not found")
+                        );
+
+        // expiry check
+        if (fileMetadata.getExpiresAt()
+                .isBefore(LocalDateTime.now())) {
+
+            throw new FileExpiredException("Link expired");
         }
 
-        Path filePath = UPLOAD_DIR.resolve(fileMetadata.getStoredFileName());
+        // one time download check
+        if (Boolean.TRUE.equals(fileMetadata.getOneTimeDownload())
+                && fileMetadata.getDownloadCount() > 0) {
+
+            throw new FileNotFoundException(
+                    "File already downloaded"
+            );
+        }
+
+        Path filePath =
+                UPLOAD_DIR.resolve(
+                        fileMetadata.getStoredFileName()
+                );
 
         if (!Files.exists(filePath)) {
-            throw new FileNotFoundException("File not found on server");
+            throw new FileNotFoundException(
+                    "File not found on server"
+            );
         }
 
-        Resource resource = new UrlResource(filePath.toUri());
+        Resource resource =
+                new UrlResource(filePath.toUri());
 
+        // increment download count
         fileMetadata.setDownloadCount(
-                fileMetadata.getDownloadCount() == null ? 1L : fileMetadata.getDownloadCount() + 1
+                fileMetadata.getDownloadCount() == null
+                        ? 1L
+                        : fileMetadata.getDownloadCount() + 1
         );
 
         fileRepository.save(fileMetadata);
 
-        if (Boolean.TRUE.equals(fileMetadata.getOneTimeDownload())) {
-            fileMetadata.setDeleteAfterDownload(true);
-            fileRepository.save(fileMetadata);
-        }
-
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + fileMetadata.getOriginalFileName() + "\"")
-                .header(HttpHeaders.CONTENT_TYPE,
-                        fileMetadata.getContentType())
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\""
+                                + fileMetadata.getOriginalFileName()
+                                + "\""
+                )
+                .header(
+                        HttpHeaders.CONTENT_TYPE,
+                        fileMetadata.getContentType()
+                )
                 .body(resource);
     }
 
@@ -159,7 +186,7 @@ public class FileService {
                 .fileName(fileMetadata.getOriginalFileName())
                 .fileSize(fileMetadata.getFileSize())
                 .expiresAt(fileMetadata.getExpiresAt().toString())
-                .downloadUrl(baseUrl+ "/f/" +shortCode)
+                .downloadUrl(baseUrl+ "/api/files/download/" +shortCode)
                 .build();
     }
 }

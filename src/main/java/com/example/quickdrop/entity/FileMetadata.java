@@ -24,7 +24,7 @@ public class FileMetadata {
 
     private String storedFileName;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true)
     private String shortCode;
 
     private String contentType;

@@ -3,13 +3,12 @@ package com.example.quickdrop.controller;
 import com.example.quickdrop.dto.FileInfoResponseDto;
 import com.example.quickdrop.dto.FileUploadResponseDto;
 import com.example.quickdrop.entity.ExpiryTime;
-import com.example.quickdrop.entity.FileMetadata;
 import com.example.quickdrop.service.FileService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/files")
 public class FileController {
